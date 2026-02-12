@@ -7,12 +7,17 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:63922719967:android:f8f94b3a8e67d09861ed6a",
+        "mobilesdk_app_id": "1:63922719967:android:c19617f9ca53053261ed6a",
         "android_client_info": {
-          "package_name": "library.ict602"
+          "package_name": "com.example.ict602_project"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "63922719967-qdosveldj0i2vmhoqlhd4gqsn93nl5tn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBvxC-_dHPctquQoo9Eh1UVbYOArqGFjts"
@@ -20,7 +25,55 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "63922719967-qdosveldj0i2vmhoqlhd4gqsn93nl5tn.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "63922719967-pjf8h5jc5fqrgju8jcoap40tnegvckgn.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "uitm.library"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:63922719967:android:f8f94b3a8e67d09861ed6a",
+        "android_client_info": {
+          "package_name": "library.ict602"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "63922719967-qdosveldj0i2vmhoqlhd4gqsn93nl5tn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvxC-_dHPctquQoo9Eh1UVbYOArqGFjts"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "63922719967-qdosveldj0i2vmhoqlhd4gqsn93nl5tn.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "63922719967-pjf8h5jc5fqrgju8jcoap40tnegvckgn.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "uitm.library"
+              }
+            }
+          ]
         }
       }
     }

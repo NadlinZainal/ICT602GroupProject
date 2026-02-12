@@ -12,7 +12,7 @@ class NotificationService {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings();
     const settings = InitializationSettings(android: android, iOS: ios);
-    await flutterLocalNotificationsPlugin.initialize(settings);
+    await flutterLocalNotificationsPlugin.initialize(settings: settings);
   }
 
   Future<void> showNotification({required String title, required String body}) async {
@@ -25,6 +25,11 @@ class NotificationService {
     );
     const iosDetails = DarwinNotificationDetails();
     const platformDetails = NotificationDetails(android: androidDetails, iOS: iosDetails);
-    await flutterLocalNotificationsPlugin.show(0, title, body, platformDetails);
+    await flutterLocalNotificationsPlugin.show(
+      id: 0, 
+      title: title, 
+      body: body, 
+      notificationDetails: platformDetails
+    );
   }
 }

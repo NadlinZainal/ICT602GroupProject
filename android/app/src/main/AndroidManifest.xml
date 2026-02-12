@@ -2,7 +2,7 @@
     <!-- Permissions for BLE beacon scanning -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" tools:targetApi="31" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" tools:targetApi="31" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" tools:targetApi="31" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -12,8 +12,7 @@
         android:label="ict602_project"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
-        <!-- Required for beacon scanning in background -->
-        <service android:name="com.almoullim.beacon.BeaconService" android:enabled="true" android:exported="false" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

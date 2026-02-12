@@ -4,6 +4,8 @@
 <dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>This app uses Bluetooth to detect library beacons for entry/exit tracking.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>This app uses Bluetooth to detect library beacons for entry/exit tracking.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app uses your location to detect when you enter or exit the library beacon region.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
