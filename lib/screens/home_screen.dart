@@ -72,6 +72,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // ✅ beacon triggers silent reminder (once)
       _silentModeReminderFlow();
+
+      // ✅ Library Rules popup after 5 seconds delay
+      Future.delayed(const Duration(seconds: 5), () {
+        if (mounted && beacon.isInside) {
+          _showRulesIfNeeded();
+        }
+      });
     } else {
       debugPrint('[DEBUG] Exit detected, ending session and exit flow');
       _endSession();
@@ -195,7 +202,6 @@ class _HomeScreenState extends State<HomeScreen> {
       title: 'Welcome to Perpustakaan Tun Abdul Razak UiTM',
       body: 'Please switch your phone to silent.',
     );
-    _showRulesIfNeeded();
   }
 
   Future<void> _showExitFlow() async {
@@ -211,11 +217,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _showRulesIfNeeded() async {
+  Future<void> _showRulesIfNeeded({bool force = false}) async {
     final prefs = await SharedPreferences.getInstance();
     final hide = prefs.getBool('hide_rules') ?? false;
 
-    if (!hide) {
+    if (force || !hide) {
       if (!mounted) return;
 
       showDialog(
@@ -469,7 +475,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     icon: Icons.bug_report,
                     label: 'Simulate Toggle',
                     color: Colors.teal,
-                    onTap: () {
+                    onTap: () async {
+                      // ✅ Clear hide_rules preference so we can test the popup flow
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool('hide_rules', false);
+
+                      if (!mounted) return;
                       final b = Provider.of<BeaconService>(
                         context,
                         listen: false,
