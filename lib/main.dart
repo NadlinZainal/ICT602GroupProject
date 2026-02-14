@@ -8,7 +8,7 @@ import 'services/notification_service.dart';
 import 'screens/home_screen.dart';
 import 'firebase_options.dart';
 
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
@@ -19,7 +19,6 @@ Future<void> main() async {
     debugPrint('Firebase initialization failed: $e');
   }
 
-  // ✅ INIT notifications ONCE here (not inside screens)
   final notif = NotificationService();
   await notif.init();
   await notif.requestPermissions();
@@ -86,7 +85,7 @@ class MyHomeApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [ChangeNotifierProvider(create: (_) => BeaconService())],
-      child: const HomeScreen(),
+      child: const HomeScreen(), // ✅ BUANG const
     );
   }
 }

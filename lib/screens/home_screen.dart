@@ -5,11 +5,13 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/session.dart';
 import '../services/beacon_service.dart';
 import '../services/notification_service.dart';
+
 import 'checkin_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -25,30 +27,93 @@ class _HomeScreenState extends State<HomeScreen> {
   Duration _elapsed = Duration.zero;
   String _matric = '';
 
-  // ✅ Silent reminder (prevent spam per entry session)
+  // Silent reminder
   bool _silentReminderSentThisSession = false;
 
-  // ✅ For break reminders
+  // Break reminders
   Timer? _breakReminderTimer;
   int _lastBreakReminderMinutes = 0;
 
-  // ✅ For time spent reminders
+  // Time spent reminders
   Timer? _timeSpentTimer;
   int _lastTimeSpentReminderMinutes = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadMatric();
+    _loadMatric().then((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkFirstTimeWelcome();
+      });
+    });
 
-    // ✅ Notifications already initialized in main.dart (DON'T init here)
-
-    // listen to beacon changes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final beacon = Provider.of<BeaconService>(context, listen: false);
       beacon.addListener(_onBeaconChange);
       beacon.startScanning();
     });
+  }
+
+  // ✅ Greeting based on time
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }
+
+  // ✅ Real-time date with day
+  String _getFormattedDate() {
+    final now = DateTime.now();
+    return DateFormat('EEE, dd MMM').format(now);
+  }
+
+  // ✅ Welcome popup after login
+  Future<void> _checkFirstTimeWelcome() async {
+    final prefs = await SharedPreferences.getInstance();
+    final justLoggedIn = prefs.getBool('just_logged_in') ?? false;
+
+    if (justLoggedIn && _matric.isNotEmpty) {
+      await prefs.setBool('just_logged_in', false);
+
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Icon(
+            Icons.waving_hand,
+            size: 50,
+            color: Colors.deepPurple,
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Welcome,',
+                style: TextStyle(fontSize: 18, color: Colors.grey.shade700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _matric,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.deepPurple,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text('Have a productive study session! 📚'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Future<void> _loadMatric() async {
@@ -58,45 +123,102 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  // ✅ LOGOUT FUNCTION with Thank You popup + navigate to CheckinScreen
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    final oldMatric = _matric;
+
+    // Clear matric from SharedPreferences
+    await prefs.remove('matric');
+
+    setState(() {
+      _matric = '';
+    });
+
+    if (!mounted) return;
+
+    // Show Thank You popup
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Icon(
+          Icons.exit_to_app,
+          size: 50,
+          color: Colors.deepPurple,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Thank You!',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Text('Goodbye, $oldMatric', style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 8),
+            const Text('See you again at PTAR UiTM Jasin! 📚'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop(); // Tutup popup
+
+              // ✅ Navigate to CheckinScreen
+              if (mounted) {
+                Navigator.of(context)
+                    .push(
+                      MaterialPageRoute(builder: (_) => const CheckinScreen()),
+                    )
+                    .then((result) {
+                      // If user logs in again, reload matric
+                      if (result == true) _loadMatric();
+                    });
+              }
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+
+    // ✅ SEND LOGOUT NOTIFICATION (tak perlu tunggu)
+    final notif = NotificationService();
+    notif.showNotification(
+      id: 3,
+      title: '👋 Logged Out',
+      body: 'You have been logged out. See you next time!',
+    );
+  }
+
   void _onBeaconChange() {
     final beacon = Provider.of<BeaconService>(context, listen: false);
 
     if (beacon.isInside) {
-      debugPrint('[DEBUG] Enter detected, starting session and welcome flow');
+      debugPrint('[DEBUG] Enter detected, starting session');
       _startSession();
-
-      // ✅ allow silent reminder once per entry
       _silentReminderSentThisSession = false;
-
       _showWelcomeFlow();
-
-      // ✅ beacon triggers silent reminder (once)
       _silentModeReminderFlow();
 
-      // ✅ Library Rules popup after 5 seconds delay
       Future.delayed(const Duration(seconds: 5), () {
         if (mounted && beacon.isInside) {
           _showRulesIfNeeded();
         }
       });
     } else {
-      debugPrint('[DEBUG] Exit detected, ending session and exit flow');
+      debugPrint('[DEBUG] Exit detected, ending session');
       _endSession();
       _showExitFlow();
-
-      // ✅ reset so next entry can remind again
       _silentReminderSentThisSession = false;
     }
   }
 
-  // ✅ Silent reminder flow: popup + notification
   Future<void> _silentModeReminderFlow({bool force = false}) async {
     if (!mounted) return;
-
     if (!force && _silentReminderSentThisSession) return;
     _silentReminderSentThisSession = true;
 
-    // popup
     showDialog(
       context: context,
       builder: (c) => AlertDialog(
@@ -113,28 +235,23 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
 
-    // notification
     final notif = NotificationService();
     await notif.showSilentModeReminder();
   }
 
   void _startSession() {
     _ticker?.cancel();
-    setState(() {
-      _elapsed = Duration.zero;
-    });
+    setState(() => _elapsed = Duration.zero);
 
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() => _elapsed += const Duration(seconds: 1));
     });
 
-    // ✅ Start break reminder timer (check every minute)
     _breakReminderTimer?.cancel();
     _breakReminderTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       _checkBreakReminders();
     });
 
-    // ✅ Start time spent reminder timer (check every minute)
     _timeSpentTimer?.cancel();
     _timeSpentTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       _checkTimeSpentReminders();
@@ -143,7 +260,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _checkBreakReminders() async {
     if (!mounted) return;
-
     final minutes = _elapsed.inMinutes;
 
     if (minutes >= 30 &&
@@ -157,11 +273,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _checkTimeSpentReminders() async {
     if (!mounted) return;
-
     final minutes = _elapsed.inMinutes;
     final reminderTimes = [15, 30, 45, 60, 75, 90, 105, 120];
 
-    // Trigger at 14->15, 29->30 etc
     if (reminderTimes.contains(minutes + 1) &&
         minutes > _lastTimeSpentReminderMinutes) {
       _lastTimeSpentReminderMinutes = minutes;
@@ -190,9 +304,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
 
-    setState(() {
-      _elapsed = Duration.zero;
-    });
+    setState(() => _elapsed = Duration.zero);
   }
 
   Future<void> _showWelcomeFlow() async {
@@ -207,7 +319,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _showExitFlow() async {
     debugPrint('[DEBUG] Showing exit notification');
     final notif = NotificationService();
-
     String durationText = _formatDuration(_elapsed);
     await notif.showNotification(
       id: 2,
@@ -233,7 +344,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: const [
               Text('• No food allowed'),
-              Text('• Plese keep quiet'),
+              Text('• Please keep quiet'),
               Text('• Put your phone on silent'),
             ],
           ),
@@ -261,7 +372,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _ticker?.cancel();
     _breakReminderTimer?.cancel();
     _timeSpentTimer?.cancel();
-
     final beacon = Provider.of<BeaconService>(context, listen: false);
     beacon.removeListener(_onBeaconChange);
     super.dispose();
@@ -284,7 +394,29 @@ class _HomeScreenState extends State<HomeScreen> {
     final currentTime = DateFormat.jm().format(DateTime.now());
 
     return Scaffold(
-      appBar: AppBar(title: const Text('PTAR UiTM Jasin')),
+      appBar: AppBar(
+        title: const Text('PTAR UiTM Jasin'),
+        // ✅ LOGIN/LOGOUT BUTTONS
+        actions: [
+          if (_matric.isEmpty)
+            IconButton(
+              icon: const Icon(Icons.login),
+              tooltip: 'Login',
+              onPressed: () async {
+                final result = await Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CheckinScreen()),
+                );
+                if (result == true) _loadMatric();
+              },
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.logout),
+              tooltip: 'Logout',
+              onPressed: _logout,
+            ),
+        ],
+      ),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -339,6 +471,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const Divider(color: Colors.white24, height: 32),
+                    // ✅ ADDED DATE & DAY
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
@@ -353,6 +486,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             'Session',
                             _formatDuration(_elapsed),
                           ),
+                        _buildStatusItem(
+                          Icons.calendar_today,
+                          'Date',
+                          _getFormattedDate(),
+                        ),
                       ],
                     ),
                   ],
@@ -383,33 +521,47 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 16),
 
+              // ✅ UPDATED MATRIC CARD with greeting
               Card(
                 child: ListTile(
                   leading: CircleAvatar(
                     backgroundColor: Theme.of(
                       context,
                     ).colorScheme.primary.withValues(alpha: 0.1),
-                    child: Icon(
-                      Icons.person,
-                      color: Theme.of(context).colorScheme.primary,
+                    child: Text(
+                      _matric.isNotEmpty
+                          ? _matric.substring(0, 2).toUpperCase()
+                          : '??',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ),
                   title: Text(
-                    _matric.isEmpty ? 'Not checked in' : _matric,
+                    _matric.isEmpty
+                        ? 'Not logged in'
+                        : '${_getGreeting()}, ${_matric.substring(0, 4)}',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  subtitle: const Text('Matric ID'),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () async {
-                      final r = await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const CheckinScreen(),
-                        ),
-                      );
-                      if (r == true) _loadMatric();
-                    },
+                  subtitle: Text(
+                    _matric.isEmpty
+                        ? 'Tap login button to check in'
+                        : 'Matric ID • $_matric',
                   ),
+                  trailing: _matric.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.edit),
+                          onPressed: () async {
+                            final r = await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const CheckinScreen(),
+                              ),
+                            );
+                            if (r == true) _loadMatric();
+                          },
+                        )
+                      : null,
                 ),
               ),
 
@@ -437,17 +589,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     onTap: () async {
                       final prefs = await SharedPreferences.getInstance();
                       await prefs.setBool('hide_rules', false);
-                      _showRulesIfNeeded();
+                      _showRulesIfNeeded(force: true);
                     },
                   ),
                   _buildActionButton(
                     context,
                     icon: Icons.notifications_active,
-                    label: 'Silent Mode Reminder',
+                    label: 'Silent Reminder',
                     color: Colors.purple,
-                    onTap: () async {
-                      await _silentModeReminderFlow(force: true);
-                    },
+                    onTap: () => _silentModeReminderFlow(force: true),
                   ),
                   _buildActionButton(
                     context,
@@ -462,7 +612,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
-                              'You need to study at least 30 minutes before a break reminder',
+                              'Need at least 30 minutes study time',
                             ),
                             behavior: SnackBarBehavior.floating,
                           ),
@@ -476,16 +626,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     label: 'Simulate Toggle',
                     color: Colors.teal,
                     onTap: () async {
-                      // ✅ Clear hide_rules preference so we can test the popup flow
                       final prefs = await SharedPreferences.getInstance();
                       await prefs.setBool('hide_rules', false);
-
                       if (!mounted) return;
-                      final b = Provider.of<BeaconService>(
+                      Provider.of<BeaconService>(
                         context,
                         listen: false,
-                      );
-                      b.toggleMock();
+                      ).toggleMock();
                     },
                   ),
                 ],
