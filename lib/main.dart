@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
-
-import 'services/beacon_service.dart';
-import 'screens/home_screen.dart';
-
-
 import 'package:google_fonts/google_fonts.dart';
 
+import 'services/beacon_service.dart';
+import 'services/notification_service.dart';
+import 'screens/home_screen.dart';
 import 'firebase_options.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -19,6 +18,12 @@ void main() async {
   } catch (e) {
     debugPrint('Firebase initialization failed: $e');
   }
+
+  // ✅ INIT notifications ONCE here (not inside screens)
+  final notif = NotificationService();
+  await notif.init();
+  await notif.requestPermissions();
+
   runApp(const MyApp());
 }
 
@@ -80,9 +85,7 @@ class MyHomeApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => BeaconService()),
-      ],
+      providers: [ChangeNotifierProvider(create: (_) => BeaconService())],
       child: const HomeScreen(),
     );
   }
